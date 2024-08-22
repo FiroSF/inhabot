@@ -3,7 +3,7 @@ package inhabot
 import (
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -11,21 +11,28 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-const AAI string = "https://aai.seoultech.ac.kr/information/bulletin/"
-const COSS string = "https://coss.seoultech.ac.kr/community/notice/"
-const SEOULTECH string = "https://www.seoultech.ac.kr/service/info/notice/"
+var (
+	BASE_URL = "https://cse.inha.ac.kr"
+)
+
+const (
+	ARRAY_SIZE        = 50
+	CSE        string = "https://cse.inha.ac.kr/cse/888/subview.do"
+	COSS       string = "https://coss.seoultech.ac.kr/community/notice/"
+	SEOULTECH  string = "https://www.seoultech.ac.kr/service/info/notice/"
+)
 
 func Scrap(url string) (isUpdated bool, bulletinList []bulletin, err error) {
 	html, err := GetWebInfo(url)
 	if err != nil {
-		fmt.Println("error scraping web,", err)
+		log.Println("error scraping web,", err)
 		return false, nil, err
 	}
-	var titlelist [25]string
-	var urllist [25]string
+	var titlelist [ARRAY_SIZE]string
+	var urllist [ARRAY_SIZE]string
 	html.Find(DecideTitleSelector(url)).Each(
 		func(i int, s *goquery.Selection) {
-			titlelist[i], urllist[i] = strings.TrimSpace(s.Text()), s.AttrOr("href", "None")
+			titlelist[i], urllist[i] = strings.TrimSpace(s.Find("strong").First().Text()), s.AttrOr("href", "None")
 		})
 	isUpdated, newTitleList := TitleList.CheckWebUpdate(titlelist, url)
 	if !isUpdated {
@@ -48,8 +55,8 @@ func DecideTitleSelector(url string) string {
 	switch url {
 	case COSS:
 		return "#sub > div > div.board_container > table > tbody > tr > td.body_col_title.dn2 > div:nth-child(1) > a"
-	case AAI:
-		return "#sub > div > div.board_container > table > tbody > tr > td.body_col_title.dn2 > div:nth-child(1) > a"
+	case CSE:
+		return ".artclTable > tbody > tr > td._artclTdTitle > a"
 	case SEOULTECH:
 		return "#hcms_content > div.wrap_list > table > tbody > tr > td.tit.dn2 > a"
 	default:
@@ -61,8 +68,8 @@ func DecideContentsSelector(url string) string {
 	switch url {
 	case COSS:
 		return "#sub > div > div.board_container > div > table > tbody > tr:nth-child(4)"
-	case AAI:
-		return "#sub > div > div.board_container > div > table > tbody > tr:nth-child(4)"
+	case CSE:
+		return "body > div > div.artclView"
 	case SEOULTECH:
 		return "#hcms_content > div.wrap_view > table > tbody > tr:nth-child(4)"
 	default:
@@ -71,9 +78,9 @@ func DecideContentsSelector(url string) string {
 }
 
 type formertitlelist struct {
-	COSSTitleList      [25]string
-	AAITitleList       [25]string
-	SeoulTechTitleList [25]string
+	COSSTitleList      [ARRAY_SIZE]string
+	CSETitleList       [ARRAY_SIZE]string
+	SeoulTechTitleList [ARRAY_SIZE]string
 }
 
 var TitleList formertitlelist
@@ -83,15 +90,15 @@ func init() {
 	TitleList.LoadFormerTitles()
 }
 
-func (t *formertitlelist) CheckWebUpdate(currentTitles [25]string, url string) (isUpdated bool, updatedTitles []string) {
-	var formerTitles *[25]string
+func (t *formertitlelist) CheckWebUpdate(currentTitles [ARRAY_SIZE]string, url string) (isUpdated bool, updatedTitles []string) {
+	var formerTitles *[ARRAY_SIZE]string
 	var found bool
 	newTitles := []string{}
 	switch url {
 	case COSS:
 		formerTitles = &t.COSSTitleList
-	case AAI:
-		formerTitles = &t.AAITitleList
+	case CSE:
+		formerTitles = &t.CSETitleList
 	case SEOULTECH:
 		formerTitles = &t.SeoulTechTitleList
 	default:
@@ -121,15 +128,15 @@ func (t *formertitlelist) CheckWebUpdate(currentTitles [25]string, url string) (
 }
 
 func GetNoticeContents(url string, contentsUrl string) (image []byte, err error) {
-	image, err = ContentsToImage(url+contentsUrl, DecideContentsSelector(url))
+	image, err = ContentsToImage(BASE_URL+contentsUrl, DecideContentsSelector(url))
 	if err != nil {
-		fmt.Println("error converting html into image,", err)
+		log.Println("error converting html into image,", err)
 		return image, err
 	}
 	return image, nil
 }
 
-func FindIndex(arr [25]string, value interface{}) (found bool, index int) {
+func FindIndex(arr [ARRAY_SIZE]string, value interface{}) (found bool, index int) {
 	for i, v := range arr {
 		if v == value {
 			return true, i
@@ -161,12 +168,12 @@ type bulletin struct {
 func (list formertitlelist) SaveFormerTitles() error {
 	file, err := json.Marshal(list)
 	if err != nil {
-		fmt.Println("error converting into json,", err)
+		log.Println("error converting into json,", err)
 		return err
 	}
 	err = os.WriteFile("./formerTitleList.json", file, os.FileMode(0644))
 	if err != nil {
-		fmt.Println("error writing file,", err)
+		log.Println("error writing file,", err)
 		return err
 	}
 	return nil
@@ -175,12 +182,12 @@ func (list formertitlelist) SaveFormerTitles() error {
 func (list *formertitlelist) LoadFormerTitles() error {
 	file, err := os.ReadFile("./formerTitleList.json")
 	if err != nil {
-		fmt.Println("error reading file,", err)
+		log.Println("error reading file,", err)
 		return err
 	}
 	err = json.Unmarshal(file, &list)
 	if err != nil {
-		fmt.Println("error converting into struct,", err)
+		log.Println("error converting into struct,", err)
 		return err
 	}
 	return nil

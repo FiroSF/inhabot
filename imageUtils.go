@@ -3,8 +3,8 @@ package inhabot
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/chromedp/chromedp"
@@ -36,30 +36,33 @@ func FullScreenshot(urlstr string, quality int, res *[]byte) chromedp.Tasks {
 func SaveImageFile(image io.Reader, name string) (err error) {
 	file, err := os.Create(name + ".png")
 	if err != nil {
-		fmt.Println("error creating file,", err)
+		log.Println("error creating file,", err)
 		return err
 	}
 	defer file.Close()
 	_, err = io.Copy(file, image)
 	if err != nil {
-		fmt.Println("error saving image,", err)
+		log.Println("error saving image,", err)
 		return err
 	}
-	fmt.Println("wrote " + name + ".png")
+	log.Println("wrote " + name + ".png")
 	return nil
 }
 
 func ContentsToImage(url string, selector string) (image []byte, occuredError error) {
 	var buf []byte
 	ctx, cancel := chromedp.NewContext(context.Background())
+	log.Printf("%s is downloading...\n", url)
 	defer cancel()
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate(url),
-		chromedp.WaitVisible(selector, chromedp.ByID),
-		chromedp.Screenshot(selector, &buf, chromedp.ByID),
+		chromedp.WaitVisible(selector, chromedp.ByQuery),
+		chromedp.Screenshot(selector, &buf, chromedp.ByQuery),
 	); err != nil {
 		return nil, err
 	}
+
+	log.Printf("%s done!\n", url)
 	return buf, nil
 }
 
