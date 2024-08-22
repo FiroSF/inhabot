@@ -1,6 +1,6 @@
-module github.com/Graval504/seoultechbot
+module github.com/FiroSF/inhabot
 
-go 1.19
+go 1.18
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0

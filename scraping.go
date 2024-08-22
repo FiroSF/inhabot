@@ -1,4 +1,4 @@
-package seoultechbot
+package inhabot
 
 import (
 	"crypto/tls"
